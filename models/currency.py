@@ -1,4 +1,5 @@
 class Currency():
+
     def __init__(self, value: int, currency: str):
         self.currency = currency
         self.value = value
