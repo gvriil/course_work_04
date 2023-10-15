@@ -1,11 +1,16 @@
 import requests
 
 from api.abc_api import VacancyAPI
+from models.currency import Currency
+from models.vacancy import Vacancy
 
 
 class HeadHunterAPI(VacancyAPI):
-
+    cache = {}
     def get_vacancies(self, search_query: dict):
+        cache_hash = str(search_query)
+        if cache_hash in self.cache:
+            return self.cache[cache_hash]
         url = "https://api.hh.ru/vacancies"
 
         # self.area = search_query["area"]
@@ -19,9 +24,13 @@ class HeadHunterAPI(VacancyAPI):
         response = requests.get(url, params=params)
         if response.status_code != 200:
             raise ConnectionError('Ошибка связи с API')
-        return response.json()
 
-    def data_format(self, data):
+        result = HeadHunterAPI._data_format(response.json())
+        self.cache[cache_hash] = result
+        return result
+
+    @staticmethod
+    def _data_format(data) -> list[Vacancy]:
 
         vacancies = []
         for item in data['items']:
@@ -31,29 +40,33 @@ class HeadHunterAPI(VacancyAPI):
             title = item['name']
             link = item['alternate_url']
 
-            salary_ = item['salary']
+            salary = item['salary']
 
-            if isinstance(salary_, dict):
-                salary_from = salary_['from']
-                salary_to = salary_['to']
+            if salary:
+                salary_from = salary.get('from', None)
+                cur = salary.get("currency", None)
+                salary_to = salary.get('to', None)
                 if salary_from and salary_to:
-                    if all([isinstance(i, int) for i in [salary_from, salary_to]]):
-                        salary_ = (salary_from + salary_to) / 2
-                    elif salary_from:
-                        salary_ = salary_from
-                    else:
-                        salary_ = salary_to
+                    salary = (salary_from + salary_to) / 2
                 else:
-                    salary_ = 0
+                    salary = salary_from if salary_from else salary_to
+                salary = Currency(salary, cur)
             else:
-                salary_ = 0
+                salary = None
             description = item['snippet']['responsibility']
             town = item['area']['name']
-            vacancy = tuple([title, link, salary_, description, town])
-            vacancies.append(vacancy)
+            vacancy = Vacancy(title, link, salary, description, town)
 
+            vacancies.append(vacancy)
         return vacancies
 
+    # if salary_from and salary_to:
+    #     if all([isinstance(i, int) for i in [salary_from, salary_to]]):
+    #         salary = (salary_from + salary_to) / 2
+    #     elif salary_from:
+    #         salary = salary_from
+    #     else:
+    #         salary = salary_to
     @classmethod
     def area_id_search(cls, city):
         """ Метод для проверки введенного города """

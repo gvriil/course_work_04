@@ -1,5 +1,8 @@
+from models.currency import Currency
+
+
 class Vacancy:
-    def __init__(self, title, link, salary, description, town):
+    def __init__(self, title: str, link: str, salary: Currency, description: str, town: str):
         self.title = title
         self.link = link
         self.salary = salary
@@ -11,23 +14,43 @@ class Vacancy:
                f"описание: {self.description}\n" \
                f"ссылка: {self.link}\n" \
                f"з/п: {self.salary}\n" \
-               f"город: {self.town}\n" \
-
+               f"город: {self.town}\n"
 
     def __eq__(self, other):
         return self.salary == other.salary
 
     def __lt__(self, other):
+        if not issubclass(other.__class__, Vacancy):
+            raise TypeError('Нельзя сравнить!')
+        if self.salary is None:
+            return True
+        if other.salary is None:
+            return False
         # if isinstance(self.salary, (int, float)) and isinstance(other.salary, (int, float)):
         #     return self.salary < other.salary
-        return str(self.salary) < str(other.salary)
+        return self.salary < other.salary
 
-    def __gt__(self, other):
-        return self.salary > other.salary
+    def __le__(self, other):
+        if not issubclass(other.__class__, Vacancy.__class__):
+            raise TypeError('Нельзя сравнить!')
+        if self.salary is None:
+            return True
+        if other.salary is None:
+            return False
 
+        return self.salary <= other.salary
 
-v = Vacancy("python", "www.hh.ru", 120, "python developer", 'Moscow')
-print(v)
+    def get_dict(self):
+        return {
+            "title": self.title,
+            "link": self.link,
+            "salary": {
+                "value": self.salary.value,
+                "currency": self.salary.currency
+            } if self.salary else None,
+            "description": self.description,
+            "town": self.town
+        }
 
 # from API_Head_Hunter import HeadHunterAPI
 # from API_Super_Job import SuperJobAPI

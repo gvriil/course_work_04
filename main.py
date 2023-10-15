@@ -1,4 +1,4 @@
-from API import HeadHunterAPI, SuperJobAPI
+from api import HeadHunterAPI, SuperJobAPI
 
 if __name__ == "__main__":
     hh_api = HeadHunterAPI("https://api.hh.ru")

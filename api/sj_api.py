@@ -1,6 +1,10 @@
 import os
+
 import requests
+
 from api.abc_api import VacancyAPI
+from models.currency import Currency
+from models.vacancy import Vacancy
 
 
 class SuperJobAPI(VacancyAPI):
@@ -10,7 +14,6 @@ class SuperJobAPI(VacancyAPI):
 
     def get_vacancies(self, search_query):
         url = 'https://api.superjob.ru/2.0/vacancies/'
-        print(self.headers)
         # self.area = search_query["town"]
 
         params = {
@@ -18,14 +21,13 @@ class SuperJobAPI(VacancyAPI):
             "town": self.area_id_search(search_query["area"]),
             "count": 10
         }
-        print(params)
         response = requests.get(url, params=params, headers=self.headers)
-        print(response.status_code)
         if response.status_code != 200:
             raise ConnectionError('Ошибка связи с API')
-        return response.json()
+        return SuperJobAPI._data_format(response.json())
 
-    def data_format(self, data):
+    @staticmethod
+    def _data_format(data):
         vacancies = []
 
         if 'objects' in data:
@@ -34,25 +36,41 @@ class SuperJobAPI(VacancyAPI):
                 title = item.get('profession', 'N/A')
                 link = item.get('link', 'N/A')
 
-                payment_from = item.get('payment_from', 'N/A')
-                payment_to = item.get('payment_to', 'N/A')
+                # payment_from = item.get('payment_from', None)
+                # payment_to = item.get('payment_to', None)
 
-                if payment_from != 'N/A' and payment_to != 'N/A':
-                    average_salary = (payment_from + payment_to) // 2
-                    salary_ = f"{average_salary} {item.get('currency', 'N/A')}"
-                elif payment_from != 'N/A':
-                    salary_ = f"{payment_from} {item.get('currency', 'N/A')}"
-                elif payment_to != 'N/A':
-                    salary_ = f"До {payment_to} {item.get('currency', 'N/A')}"
+                salary_from = item.get('payment_from', None)
+                cur = item.get("currency", None)
+                salary_to = item.get('payment_to', None)
+                if salary_from and salary_to:
+                    salary = (salary_from + salary_to) / 2
                 else:
-                    salary_ = 'Не указана'
+                    salary = salary_from if salary_from else salary_to
+                salary = Currency(salary, cur)
 
                 description = item.get('work', 'N/A')
                 town = item.get('town', {}).get('title', 'N/A')
+                vacancy = Vacancy(title, link, salary, description, town)
 
-                vacancy = tuple([title, link, salary_, description, town])
                 vacancies.append(vacancy)
-        return vacancies
+
+            return vacancies
+        #         if payment_from and payment_to:
+        #             average_salary = (payment_from + payment_to) // 2
+        #             salary_ = f"{average_salary} {item.get('currency', 'N/A')}"
+        #         elif payment_from:
+        #             salary_ = f"{payment_from} {item.get('currency', 'N/A')}"
+        #         elif payment_to != 'N/A':
+        #             salary_ = f"До {payment_to} {item.get('currency', 'N/A')}"
+        #         else:
+        #             salary_ = 'Не указана'
+        #
+        #         description = item.get('work', 'N/A')
+        #         town = item.get('town', {}).get('title', 'N/A')
+        #
+        #         vacancy = tuple([title, link, salary_, description, town])
+        #         vacancies.append(vacancy)
+        # return vacancies
 
     @classmethod
     def area_id_search(cls, city):
