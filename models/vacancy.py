@@ -31,7 +31,7 @@ class Vacancy:
         return self.salary < other.salary
 
     def __le__(self, other):
-        if not issubclass(other.__class__, Vacancy.__class__):
+        if not issubclass(other.__class__, Vacancy):
             raise TypeError('Нельзя сравнить!')
         if self.salary is None:
             return True
@@ -51,6 +51,9 @@ class Vacancy:
             "description": self.description,
             "town": self.town
         }
+
+    def to_list(self):
+        return [self.town, self.link, self.salary, self.description, self.town]
 
 # from API_Head_Hunter import HeadHunterAPI
 # from API_Super_Job import SuperJobAPI

@@ -11,20 +11,38 @@ class SuperJobAPI(VacancyAPI):
     # api_url = 'https://api.superjob.ru/2.0/vacancies'3
     api_key = os.getenv('API_KEY_SJ')
     headers = {"X-Api-App-Id": api_key}
-
+    cache = {}
     def get_vacancies(self, search_query):
+        cache_hash = str(search_query)
+        if cache_hash in self.cache:
+            return self.cache[cache_hash]
         url = 'https://api.superjob.ru/2.0/vacancies/'
+
         # self.area = search_query["town"]
+        pages_amount = search_query["pages"]
 
         params = {
             "keyword": search_query.get('text'),
             "town": self.area_id_search(search_query["area"]),
-            "count": 10
+            "count": 10,
+            "payment_from": search_query["salary"],
+            "only_with_salary": True
         }
-        response = requests.get(url, params=params, headers=self.headers)
-        if response.status_code != 200:
-            raise ConnectionError('Ошибка связи с API')
-        return SuperJobAPI._data_format(response.json())
+
+        res = []
+        for page in range(pages_amount):
+            params['page'] = page
+
+            response = requests.get(url, params=params, headers=self.headers)
+
+            if response.status_code != 200:
+                raise ConnectionError('Ошибка связи с API')
+
+            result = SuperJobAPI._data_format(response.json())
+            if result:
+                res.extend(result)
+
+        return res
 
     @staticmethod
     def _data_format(data):
@@ -55,51 +73,19 @@ class SuperJobAPI(VacancyAPI):
                 vacancies.append(vacancy)
 
             return vacancies
-        #         if payment_from and payment_to:
-        #             average_salary = (payment_from + payment_to) // 2
-        #             salary_ = f"{average_salary} {item.get('currency', 'N/A')}"
-        #         elif payment_from:
-        #             salary_ = f"{payment_from} {item.get('currency', 'N/A')}"
-        #         elif payment_to != 'N/A':
-        #             salary_ = f"До {payment_to} {item.get('currency', 'N/A')}"
-        #         else:
-        #             salary_ = 'Не указана'
-        #
-        #         description = item.get('work', 'N/A')
-        #         town = item.get('town', {}).get('title', 'N/A')
-        #
-        #         vacancy = tuple([title, link, salary_, description, town])
-        #         vacancies.append(vacancy)
-        # return vacancies
 
     @classmethod
-    def area_id_search(cls, city):
+    def area_id_search(cls, city_title):
         """ Метод для проверки введенного города """
+        params = {'all': True}
 
         url = 'https://api.superjob.ru/2.0/towns/'
-        response = requests.get(url, headers=SuperJobAPI.headers)
+        response = requests.get(url, headers=cls.headers, params=params)
 
         if response.status_code != 200:
             raise Exception('SuperJobAPI: Ошибка запроса городов, api не работает')
 
-        response_json = response.json()
-
-        return cls.find_area(city, response_json['objects'])
-
-    @classmethod
-    def find_area(cls, city_title: str, areas: dict) -> int | None:
-        """
-        Рекурсивный метод для поиска города по названию
-        :param city_title: название города
-        :param areas: словарик с городами и определенной структурой смотреть
-        (https://github.com/hhru/api/blob/master/docs/areas.md#areas)
-        :return: id города или None
-        """
-
-        for area in areas:
-            if area['title'] == city_title:
-                return area['id']
-            elif area['title']:
-                result = cls.find_area(city_title, area['title'])
-                if result:
-                    return int(result)
+        response_json = response.json()['objects']
+        for city in response_json:
+            if city['title'] == city_title:
+                return city['id']

@@ -1,6 +1,6 @@
 from api.hh_api import HeadHunterAPI
 from api.sj_api import SuperJobAPI
-from data_storage.json_saver import save_json
+from data_storage.saver import save_json
 from api.hh_api import HeadHunterAPI
 
 

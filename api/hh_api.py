@@ -7,36 +7,44 @@ from models.vacancy import Vacancy
 
 class HeadHunterAPI(VacancyAPI):
     cache = {}
+
     def get_vacancies(self, search_query: dict):
-        cache_hash = str(search_query)
-        if cache_hash in self.cache:
-            return self.cache[cache_hash]
+        # cache_hash = str(search_query)
+        # if cache_hash in self.cache:
+        #     return self.cache[cache_hash]
         url = "https://api.hh.ru/vacancies"
 
-        # self.area = search_query["area"]
+        pages_amount = search_query["pages"]
         params = {
             "text": search_query["text"],
             "area": self.area_id_search(search_query["area"]),
-            "per_page": 10
+            "per_page": 10,
+            "salary": search_query["salary"],
+            "no_agreement": 1
         }
-        # params = {**params, **search_query}
-        # print(params)
-        response = requests.get(url, params=params)
-        if response.status_code != 200:
-            raise ConnectionError('Ошибка связи с API')
 
-        result = HeadHunterAPI._data_format(response.json())
-        self.cache[cache_hash] = result
-        return result
+        res = []
+        for page in range(pages_amount):
+            params['page'] = page
+
+            response = requests.get(url, params=params)
+
+            if response.status_code != 200:
+                raise ConnectionError('Ошибка связи с API')
+
+            # raw_vacancy.append(response)
+
+            result = HeadHunterAPI._data_format(response.json())
+            if result:
+                res.extend(result)
+
+        return res
 
     @staticmethod
     def _data_format(data) -> list[Vacancy]:
 
         vacancies = []
         for item in data['items']:
-            # if self.area != item["area"]["name"]:
-            #     continue
-
             title = item['name']
             link = item['alternate_url']
 
@@ -52,7 +60,7 @@ class HeadHunterAPI(VacancyAPI):
                     salary = salary_from if salary_from else salary_to
                 salary = Currency(salary, cur)
             else:
-                salary = None
+                salary = Currency(0, ':)')
             description = item['snippet']['responsibility']
             town = item['area']['name']
             vacancy = Vacancy(title, link, salary, description, town)
@@ -60,13 +68,6 @@ class HeadHunterAPI(VacancyAPI):
             vacancies.append(vacancy)
         return vacancies
 
-    # if salary_from and salary_to:
-    #     if all([isinstance(i, int) for i in [salary_from, salary_to]]):
-    #         salary = (salary_from + salary_to) / 2
-    #     elif salary_from:
-    #         salary = salary_from
-    #     else:
-    #         salary = salary_to
     @classmethod
     def area_id_search(cls, city):
         """ Метод для проверки введенного города """
