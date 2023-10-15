@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 from models.vacancy import Vacancy
 
 
-class VacancyAPI(ABC):
+class Saver(ABC):
 
     @abstractmethod
-    def get_vacancies(self, search_query)-> list[Vacancy]:
+    def save(self, vacancies: list[Vacancy], filename):
         pass
 

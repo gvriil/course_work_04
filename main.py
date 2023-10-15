@@ -1,9 +1,6 @@
-from API import HeadHunterAPI, SuperJobAPI
+from vacancy_finder import VacancyFinder
 
 if __name__ == "__main__":
-    hh_api = HeadHunterAPI("https://api.hh.ru")
-    superjob_api = SuperJobAPI("https://api.superjob.ru", API_KEY_SJ)
+    vacancy_finder = VacancyFinder()
+    vacancy_finder.run()
 
-    json_data_storage = JSONDataStorage("vacancies.json")
-
-    user_interaction()

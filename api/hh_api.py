@@ -1,68 +1,110 @@
 import requests
-
 from api.abc_api import VacancyAPI
-
+from config import PER_PAGE
+from models.currency import Currency
+from models.vacancy import Vacancy
 
 class HeadHunterAPI(VacancyAPI):
+    """
+    Класс для взаимодействия с API HeadHunter для получения вакансий.
+    """
+
+    cache = {}
+    per_page = PER_PAGE
 
     def get_vacancies(self, search_query: dict):
-        url = "https://api.hh.ru/vacancies"
+        """
+        Получение вакансий с помощью API HeadHunter на основе параметров поиска.
 
-        # self.area = search_query["area"]
+        Args:
+            search_query (dict): Словарь, содержащий параметры поиска.
+
+        Returns:
+            list[Vacancy]: Список объектов Vacancy, представляющих вакансии.
+        """
+
+        url = "https://api.hh.ru/vacancies"
+        pages_amount = search_query["pages"]
         params = {
             "text": search_query["text"],
             "area": self.area_id_search(search_query["area"]),
-            "per_page": 10
+            "per_page": self.per_page,
+            "salary": search_query["salary"],
+            "no_agreement": 1
         }
-        # params = {**params, **search_query}
-        # print(params)
-        response = requests.get(url, params=params)
-        if response.status_code != 200:
-            raise ConnectionError('Ошибка связи с API')
-        return response.json()
+        res = []
 
-    def data_format(self, data):
+        for page in range(pages_amount):
+            params['page'] = page
+            response = requests.get(url, params=params)
+
+            if response.status_code != 200:
+                raise ConnectionError('Ошибка связи с API')
+
+            result = HeadHunterAPI._data_format(response.json())
+            if result:
+                res.extend(result)
+
+        return res
+
+    @staticmethod
+    def _data_format(data) -> list[Vacancy]:
+        """
+        Форматирование необработанных данных из ответа API в список объектов Vacancy.
+
+        Args:
+            data: Необработанные данные из ответа API.
+
+        Returns:
+            list[Vacancy]: Список объектов Vacancy.
+        """
 
         vacancies = []
         for item in data['items']:
-            # if self.area != item["area"]["name"]:
-            #     continue
-
             title = item['name']
             link = item['alternate_url']
+            salary = item['salary']
 
-            salary_ = item['salary']
+            if salary:
+                salary_from = salary.get('from', None)
+                cur = salary.get("currency", None)
+                salary_to = salary.get('to', None)
 
-            if isinstance(salary_, dict):
-                salary_from = salary_['from']
-                salary_to = salary_['to']
                 if salary_from and salary_to:
-                    if all([isinstance(i, int) for i in [salary_from, salary_to]]):
-                        salary_ = (salary_from + salary_to) / 2
-                    elif salary_from:
-                        salary_ = salary_from
-                    else:
-                        salary_ = salary_to
+                    salary = (salary_from + salary_to) / 2
                 else:
-                    salary_ = 0
+                    salary = salary_from if salary_from else salary_to
+
+                salary = Currency(salary, cur)
             else:
-                salary_ = 0
+                continue
+                # salary = Currency(0, ':)')
+
             description = item['snippet']['responsibility']
             town = item['area']['name']
-            vacancy = tuple([title, link, salary_, description, town])
+            vacancy = Vacancy(title, link, salary, description, town)
+
             vacancies.append(vacancy)
 
         return vacancies
 
     @classmethod
     def area_id_search(cls, city):
-        """ Метод для проверки введенного города """
+        """
+        Проверка правильности введенного названия города и получение его ID из API.
+
+        Args:
+            city (str): Название города.
+
+        Returns:
+            int | None: ID города или None, если не найден.
+        """
 
         url = 'https://api.hh.ru/areas'
         response = requests.get(url)
 
         if response.status_code != 200:
-            raise Exception('HeadHunterAPI: Ошибка запроса городов, api не работает')
+            raise Exception('HeadHunterAPI: Ошибка запроса городов, API не работает')
 
         response_json = response.json()
 
@@ -71,11 +113,14 @@ class HeadHunterAPI(VacancyAPI):
     @classmethod
     def find_area(cls, city_title: str, areas: dict) -> int | None:
         """
-        Рекурсивный метод для поиска города по названию
-        :param city_title: название города
-        :param areas: словарик с городами и определенной структурой смотреть
-        (https://github.com/hhru/api/blob/master/docs/areas.md#areas)
-        :return: id города или None
+        Рекурсивный поиск ID города по его названию в словаре районов.
+
+        Args:
+            city_title (str): Название города для поиска.
+            areas (dict): Словарь районов с определенной структурой.
+
+        Returns:
+            int | None: ID города или None, если не найден.
         """
 
         for area in areas:

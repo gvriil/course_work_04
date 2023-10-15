@@ -1,1 +1,3 @@
+
 API_KEY_SJ = "API_KEY_SJ"
+PER_PAGE = 10
