@@ -9,6 +9,7 @@ json_saver = JSONSaver()
 csv_saver = CSVSaver()
 txt_saver = TxtSaver()
 
+
 class VacancyFinder:
     def __init__(self):
         """Инициализация класса VacancyFinder.
@@ -42,17 +43,32 @@ class VacancyFinder:
 
     def input_area(self):
         """Получает населенный пункт от пользователя и проверяет его валидность."""
+        citi_id = None
         while True:
             self.user_input_area = input("Введите населенный пункт: ").capitalize()
-            if (t := HeadHunterAPI.area_id_search(self.user_input_area)) is None:
-                print('Город не найден на HeadHunter:', self.user_input_area)
-                continue
-            elif (t := SuperJobAPI.area_id_search(self.user_input_area)) is None:
-                print('Город не найден на SuperJob:', self.user_input_area)
-                continue
-            else:
+            if t := HeadHunterAPI.area_id_search(self.user_input_area):
+                citi_id = t
                 break
+            else:
+                print('Город не найден на HeadHunter:', self.user_input_area)
+            if t := SuperJobAPI.area_id_search(self.user_input_area):
+                citi_id = t
+                break
+            else:
+                print('Город не найден на SuperJob:', self.user_input_area)
             print('Введите город повторно/возможно API его не находит')
+        return citi_id
+        # t = None
+        # while True:
+        #     self.user_input_area = input("Введите населенный пункт: ").capitalize()
+        #     if t:= HeadHunterAPI.area_id_search(self.user_input_area):
+        #         print('Город не найден на HeadHunter:', self.user_input_area)
+        #     elif t:= SuperJobAPI.area_id_search(self.user_input_area):
+        #         print('Город не найден на SuperJob:', self.user_input_area)
+        #     elif t:
+        #         return t
+        #     else:
+        #         print('Введите город повторно/возможно API его не находит')
 
     def input_text(self):
         """Получает поисковый запрос от пользователя и проверяет его валидность."""
